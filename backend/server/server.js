@@ -1,26 +1,28 @@
 const http = require("http");
+const express = require("express");
 
-const handleRoutes = require("../routes/routes");
+const createRouter = require("../routes/routes");
 const startHeartbeat = require("../utils/heartbeat");
+const { requestLogger } = require("../middleware/requestMiddleware");
+const websocketService = require("../services/websocketService");
 
-const nodeId = parseInt(process.env.ID) || 1;
+const nodeId = parseInt(process.env.ID, 10) || 1;
 const port = process.env.PORT || 3000;
 
-const server = http.createServer((req, res) => {
+const app = express();
 
-  const handled = handleRoutes(req, res, nodeId);
+app.use(express.json());
+app.use(requestLogger);
+app.use(createRouter(nodeId));
 
-  if (!handled) {
-
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "text/plain");
-    res.end(`Servidor do node ${nodeId}\n`);
-  }
+app.get("/", (_req, res) => {
+  res.status(200).type("text/plain").send(`Servidor do node ${nodeId}\n`);
 });
 
+const server = http.createServer(app);
+websocketService.initialize(server, nodeId);
+
 server.listen(port, () => {
-
   console.log(`Node ${nodeId} rodando na porta ${port}`);
-
   startHeartbeat(nodeId);
 });

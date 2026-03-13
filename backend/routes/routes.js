@@ -1,35 +1,31 @@
+const express = require("express");
 const electionController = require("../controllers/electionController");
+const bullyService = require("../services/bullyService");
+const { requireInternalToken } = require("../middleware/requestMiddleware");
 
-function handleRoutes(req, res, nodeId) {
+function createRouter(nodeId) {
+  const router = express.Router();
 
-  if (req.url === "/ping") {
-    res.end("ok");
-    return true;
-  }
+  router.get("/ping", (_req, res) => {
+    res.send("ok");
+  });
 
-  if (req.method === "POST") {
-
-    let body = "";
-
-    req.on("data", chunk => body += chunk);
-
-    req.on("end", () => {
-
-      const data = JSON.parse(body);
-
-      if (req.url === "/election") {
-        electionController.handleElection(req, res, data, nodeId);
-      }
-
-      if (req.url === "/coordinator") {
-        electionController.handleCoordinator(req, res, data);
-      }
+  router.get("/status", (_req, res) => {
+    res.json({
+      nodeId,
+      coordinator: bullyService.getCoordinator(),
     });
+  });
 
-    return true;
-  }
+  router.post("/election", requireInternalToken, (req, res) => {
+    electionController.handleElection(req, res, req.body, nodeId);
+  });
 
-  return false;
+  router.post("/coordinator", requireInternalToken, (req, res) => {
+    electionController.handleCoordinator(req, res, req.body, nodeId);
+  });
+
+  return router;
 }
 
-module.exports = handleRoutes;
+module.exports = createRouter;
